@@ -6,6 +6,8 @@ A self-improving retrospective skill for Claude Code. One command makes your AI 
 
 The model stays the same. The instructions get smarter.
 
+> **v2.0.0** — Now with scope selection (full scan vs current conversation only), 8 structured config health checks, hook promotion for enforcement gaps, and cross-level analysis. See [Releases](https://github.com/TerenceBristol/claude-improve/releases) for the full changelog.
+
 ---
 
 ## Quick Start
@@ -34,16 +36,17 @@ That's it. The skill works on any project with configuration files (CLAUDE.md, s
 
 ## How It Works
 
-`/improve` runs a 6-phase analysis every time you invoke it:
+`/improve` starts by asking what scope you want — **full scan** (history + current conversation) or **current conversation only** — then runs its analysis:
 
 | Phase | What It Does |
 |-------|-------------|
-| **1. Discovery** | A background agent maps every config file in your project — CLAUDE.md, skills, agents, frameworks, memory. |
-| **2. History Scan** | Another background agent reads your last 5 sessions, extracts user messages, and filters for corrections, praise, friction, and explicit feedback. |
+| **Scope Selection** | Choose "Historical + current conversation" for the full scan, or "Current conversation only" for a quick session-focused retrospective. |
+| **1. Discovery** | A background agent maps every config file at both project and global levels — CLAUDE.md, skills, agents, frameworks, memory, settings files, and `.claude/rules/`. |
+| **2. History Scan** | Another background agent reads your last 5 sessions, extracts user messages, and filters for corrections, praise, friction, and explicit feedback. *(Full scope only)* |
 | **3. Live Analysis** | Analyzes your current conversation for 9 different signal types — corrections, praise, capability gaps, techniques that worked, and more. |
-| **4. Cross-Reference** | Reads your actual config files and checks for enforcement gaps, recurring patterns that need stronger rules, and config health issues like bloat or contradictions. |
+| **4. Cross-Reference** | Reads your actual config files and checks for enforcement gaps (with hook promotion), recurring patterns, and 8 structured config health checks including size thresholds, memory consolidation, skill consolidation, and cross-level analysis. |
 | **5. Present Findings** | Each finding shows up one at a time, ranked by impact. You accept, reject, or modify. Nothing changes without your approval. |
-| **6. Apply** | Writes the approved changes to your config files and saves feedback as memory entries. |
+| **6. Apply** | Writes the approved changes — edits to config files, new hooks in settings.json, rule extractions, memory merges, skill creation, and memory entries. |
 
 Phases 1 and 2 run in parallel as background agents. Phase 3 runs simultaneously. This means the skill starts producing findings quickly.
 

@@ -6,7 +6,7 @@ A self-improving retrospective skill for Claude Code. One command makes your AI 
 
 The model stays the same. The instructions get smarter.
 
-> **v2.0.0** — Now with scope selection (full scan vs current conversation only), 8 structured config health checks, hook promotion for enforcement gaps, and cross-level analysis. See [Releases](https://github.com/TerenceBristol/claude-improve/releases) for the full changelog.
+> **v3.0.0** — Now with a self-learning loop that adapts to your preferences, bidirectional content placement audit, confidence scoring, cross-skill consistency checking, skill budget monitoring, and smarter hook generation with ready-to-paste JSON configs. See [Releases](https://github.com/TerenceBristol/claude-improve/releases) for the full changelog.
 
 ---
 
@@ -31,6 +31,14 @@ cp claude-improve/improve.md ~/.claude/commands/improve.md
 ```
 
 That's it. The skill works on any project with configuration files (CLAUDE.md, skills, agents, memory, frameworks). No dependencies, no setup, no API keys.
+
+---
+
+## Files Created
+
+`/improve` creates one file automatically:
+
+- **`~/.claude/improve-learnings.md`** — Tracks acceptance patterns from your runs. The skill reads this before each run to adapt its behavior (deprioritize findings you consistently reject, boost what you accept). Auto-managed — no manual editing needed. Delete it anytime to reset learning.
 
 ---
 
@@ -72,17 +80,18 @@ Phases 1 and 2 run in parallel as background agents. Phase 3 runs simultaneously
 
 ## Priority System
 
-Findings are ranked into 9 tiers, from highest to lowest priority:
+Findings are ranked into 10 tiers, from highest to lowest priority:
 
 1. **Targeted** — Feedback you explicitly passed as arguments
 2. **Critical** — Enforcement gaps (rules that exist but aren't being followed)
 3. **Promotion** — Patterns repeated 3+ times that should become documented rules
-4. **Improvement** — Direct corrections from the current conversation
-5. **Technique** — Successful approaches worth documenting
-6. **Maintenance** — Config health issues (bloat, contradictions, staleness)
-7. **Reinforcement** — Things working well that should be acknowledged
-8. **New Skill** — Capability gaps that could become new skills or agents
-9. **User Coaching** — Gentle suggestions for the human side of the collaboration
+4. **Content Misplacement** — Instructions or knowledge living in the wrong file
+5. **Improvement** — Direct corrections from the current conversation
+6. **Technique** — Successful approaches worth documenting
+7. **Maintenance** — Config health issues (bloat, contradictions, staleness)
+8. **Reinforcement** — Things working well that should be acknowledged
+9. **New Skill** — Capability gaps that could become new skills or agents
+10. **User Coaching** — Gentle suggestions for the human side of the collaboration
 
 ---
 
@@ -109,12 +118,7 @@ This skill was built by studying six existing approaches from the Claude Code co
 
 ## Watch the Video
 
-<!-- TODO: Update with actual video URL after publishing -->
-This skill was introduced in **"I Made All My AI Agents Self-Improving"** on YouTube.
-
-Watch the full breakdown, live demo, and the story behind why this was built:
-
-**[Watch on YouTube](https://youtube.com/@terencebristol)** | **[Subscribe](https://youtube.com/@terencebristol?sub_confirmation=1)**
+[![Watch on YouTube](https://img.shields.io/badge/YouTube-Watch_the_Video-red?style=for-the-badge&logo=youtube)](https://youtu.be/heLMN5oDHEU?si=LYjQkisDgn4ReWl9)
 
 ---
 

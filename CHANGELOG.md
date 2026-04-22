@@ -4,6 +4,31 @@ All notable changes to the `/improve` skill are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.0.0] - 2026-04-22
+
+### Added
+- **Self-learning loop**: Reads `~/.claude/improve-learnings.md` before each run and writes acceptance patterns after. The skill adapts over time — deprioritizing finding types you consistently reject and boosting what you accept.
+- **Bidirectional content placement audit** with 5 migration directions:
+  - CLAUDE.md → Skill files (skill-specific instructions)
+  - Memory → Skills (procedural knowledge in memory)
+  - Skill files → CLAUDE.md (universal rules buried in skills)
+  - CLAUDE.md → Memory (factual content consuming instruction budget)
+  - Between skills (duplicated sections)
+- **Cross-skill consistency checking**: Detects contradictions across skill files — conflicting directives, overlapping triggers, inconsistent terminology, process conflicts, and skills-vs-CLAUDE.md mismatches
+- **Skill budget monitoring**: Tracks total skill description character count against the community-discovered ~16K metadata budget. Warns when approaching the limit where skills become silently invisible.
+- **Skill description quality audit**: Checks each skill's description for activation best practices — third-person voice, trigger conditions, appropriate length, specificity
+- **CLAUDE.md structural validation**: Light-touch check against the WHAT/WHY/HOW framework
+- **Confidence scoring** on all findings (High / Medium / Low) based on signal strength and cross-session recurrence
+- **Smarter hook recommendations**: Generates complete hook JSON config with event type detection, ready to paste into settings.json. Includes compliance improvement estimate.
+- **Agent failure graceful degradation**: Discovery Agent falls back to hardcoded config paths; History/Prior-Improve agents degrade to current-only scope. Always announces what was skipped.
+- **Content Misplacement** as a new finding category (priority 4th, between Promotion and Improvement)
+
+### Changed
+- Phase 5 finding format now includes confidence level: `[Tier | Confidence]`
+- Phase 6 expanded with application steps for content moves, skill description rewrites, and learnings file updates
+- Priority system now has 10 tiers (added Content Misplacement)
+- Removed redundant "Contradictions" sub-section (now covered by Cross-Skill Consistency with 5 specific patterns)
+
 ## [2.0.0] - 2026-04-14
 
 ### Added

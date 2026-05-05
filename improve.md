@@ -216,6 +216,26 @@ Measure CLAUDE.md (both project and global) line count and character count.
 - Flag memory files with stale references: files, functions, or features mentioned in the memory that no longer exist in the codebase
 - Flag memory files with relative dates that were never converted to absolute
 
+#### Mandatory Redundancy Verification
+
+When flagging a memory file as redundant because "the rule already exists in [skill/CLAUDE.md]", you MUST:
+1. grep the target file for the key phrase from the memory
+2. Confirm the match covers the same scope and intent (not just similar wording)
+3. Present the grep evidence to the user: "Verified: [skill] line N contains [matched text]"
+
+NEVER claim redundancy without grep verification. False redundancy claims waste user trust and can lead to lost rules.
+
+#### Consolidate-Then-Clean Workflow
+
+When finding redundant or overlapping memory files:
+1. First identify WHERE each rule should live (skill, CLAUDE.md, or memory) using the Placement Recommendation logic
+2. For rules that belong in a skill: propose integrating them into the skill FIRST
+3. For rules that belong in CLAUDE.md: propose adding them there FIRST
+4. Only AFTER integration is confirmed → remove the original memory file
+5. Never remove a memory file without first ensuring its content lives somewhere authoritative
+
+This prevents rule loss during cleanup.
+
 #### Rule Extraction
 - Scan CLAUDE.md for file-type-specific or path-specific instructions (patterns like "for *.test.ts files", "in API routes", "when editing components/", etc.)
 - Suggest migrating these to `.claude/rules/` with path-scoping globs in frontmatter
@@ -343,6 +363,14 @@ Assign a confidence level to every finding as a secondary axis:
 
 Confidence doesn't change priority order (Critical still beats Improvement regardless of confidence), but helps the user decide scrutiny level — high confidence findings can be accepted faster, low confidence ones deserve more thought.
 
+### Placement Recommendation
+
+For each finding, recommend the optimal target based on scope:
+- If the finding is a procedural rule that only applies during a specific skill's execution → target that skill file, not memory
+- If the finding applies across 2+ skills but isn't universal → CLAUDE.md Quality Standards
+- If the finding is a fact or reference → memory file
+- ALWAYS recommend a specific placement with rationale. Never present equal-weight options without a recommendation.
+
 ## Phase 5: Present Findings
 
 **Announce:** "Found N findings across M categories. Presenting one at a time, most impactful first."
@@ -355,6 +383,24 @@ All proposed rule changes MUST:
 - Use precise language: "try to" → "always", "consider" → "must"
 - Include a concrete example when not self-evident
 - Keep concise — one clear sentence beats a paragraph
+
+### Default to Recommending
+
+When presenting findings with multiple options (Accept/Reject/Modify, or placement choices), ALWAYS lead with a specific recommendation and rationale. Example:
+- Instead of: "Should we add to CLAUDE.md or keep as memory?"
+- Say: "I recommend CLAUDE.md because [rationale]. [Options: Accept recommendation / Keep as memory / Modify]"
+
+The user values opinionated recommendations over equal-weight menus. Present the recommendation first, then the alternatives.
+
+### Memory Consolidation Findings (present during Phase 5, not Phase 6)
+
+When Memory Consolidation in Phase 4c identifies redundant files:
+- Present the consolidation analysis as findings in Phase 5 (one at a time via AskUserQuestion)
+- Include: which files are redundant, WHERE each rule should be integrated, and what will be removed
+- Get user approval for each consolidation group before proceeding
+- Phase 6 then EXECUTES the approved consolidations (integrate + delete)
+
+Do NOT defer consolidation decisions to Phase 6. The user wants to review and approve each consolidation during the interactive finding presentation.
 
 ### Presentation
 

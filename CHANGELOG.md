@@ -4,6 +4,15 @@ All notable changes to the `/improve` skill are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.1.0] - 2026-05-05
+
+### Added
+- **Mandatory Redundancy Verification**: Before flagging a memory file as redundant, the skill now requires grep verification — confirming the rule actually exists in the claimed destination file with matching scope and intent. Prevents false redundancy claims that could lead to lost rules.
+- **Consolidate-Then-Clean Workflow**: When merging or removing memory files, the skill now ensures content is integrated into its destination (skill, CLAUDE.md, or another memory file) BEFORE removing the source. Prevents accidental rule loss during cleanup.
+- **Placement Recommendation**: Every finding now includes an opinionated target recommendation — whether it belongs in a specific skill file, CLAUDE.md, or memory — with rationale. No more equal-weight menus without guidance.
+- **Default to Recommending**: All multi-option presentations now lead with a specific recommendation and rationale, followed by alternatives. The skill expresses a preference rather than deferring every decision to the user.
+- **Memory Consolidation Findings in Phase 5**: Consolidation decisions are now presented during the interactive Phase 5 (where you Accept/Reject/Modify), not deferred to Phase 6 execution. You review and approve each consolidation group before anything gets merged or deleted.
+
 ## [3.0.0] - 2026-04-22
 
 ### Added

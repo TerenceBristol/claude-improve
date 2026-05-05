@@ -6,7 +6,7 @@ A self-improving retrospective skill for Claude Code. One command makes your AI 
 
 The model stays the same. The instructions get smarter.
 
-> **v3.0.0** — Now with a self-learning loop that adapts to your preferences, bidirectional content placement audit, confidence scoring, cross-skill consistency checking, skill budget monitoring, and smarter hook generation with ready-to-paste JSON configs. See [Releases](https://github.com/TerenceBristol/claude-improve/releases) for the full changelog.
+> **v3.1.0** — Added mandatory redundancy verification, consolidate-then-clean workflow, placement recommendations, and opinionated finding presentation. See [Releases](https://github.com/TerenceBristol/claude-improve/releases) for the full changelog.
 
 ---
 
@@ -31,6 +31,17 @@ cp claude-improve/improve.md ~/.claude/commands/improve.md
 ```
 
 That's it. The skill works on any project with configuration files (CLAUDE.md, skills, agents, memory, frameworks). No dependencies, no setup, no API keys.
+
+---
+
+## Updating
+
+Pull the latest and re-copy:
+
+```bash
+cd ~/path/to/claude-improve && git pull
+cp improve.md ~/.claude/commands/improve.md
+```
 
 ---
 
@@ -92,6 +103,26 @@ Findings are ranked into 10 tiers, from highest to lowest priority:
 8. **Reinforcement** — Things working well that should be acknowledged
 9. **New Skill** — Capability gaps that could become new skills or agents
 10. **User Coaching** — Gentle suggestions for the human side of the collaboration
+
+---
+
+## Example Finding
+
+Here's what a finding looks like when presented during Phase 5:
+
+```
+[Critical | High] — Source: 2026-04-28 — Enforcement gap detected.
+
+Rule "ALWAYS use AskUserQuestion for decisions" is documented in CLAUDE.md
+but was violated 3x in recent sessions.
+
+File: ~/.claude/CLAUDE.md
+Proposed: Convert to hook (deterministic enforcement).
+
+Options: Accept / Reject / Modify
+```
+
+Each finding shows its priority tier, confidence level, source, and a specific proposed change. Nothing happens without your approval.
 
 ---
 

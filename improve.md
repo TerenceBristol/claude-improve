@@ -29,6 +29,7 @@ Before launching any agents, ask the user:
 **Options (AskUserQuestion):**
 - **Historical + current conversation** — Full scan: history from recent sessions, prior /improve audit, plus current conversation analysis
 - **Current conversation only** — Analyze only this session's patterns and feedback
+- **Config audit only** — No conversation analysis. Full config health scan: memory consolidation, CLAUDE.md bloat, content placement, skill consistency. Use from a fresh conversation for standalone maintenance.
 
 Store the answer as the `scope` for the rest of the skill.
 
@@ -38,6 +39,8 @@ Store the answer as the `scope` for the rest of the skill.
 
 **If scope = "Current conversation only":** Launch only the Discovery Agent in background, skip History Scan and Prior-Improve Cross-Check agents entirely, then immediately proceed to Phase 3. Announce: "Launching discovery agent (current conversation scope)."
 
+**If scope = "Config audit only":** Launch only the Discovery Agent in background, skip History Scan, Prior-Improve Cross-Check, AND Phase 3 (Current Conversation Analysis) entirely. Proceed directly to Phase 4 (Cross-Reference & Categorize). Announce: "Running config-only audit — skipping conversation analysis."
+
 ### Discovery Agent (Explore, background — always runs)
 
 Prompt the agent to search for and catalog ALL config-like files at BOTH project and global levels:
@@ -46,7 +49,7 @@ Prompt the agent to search for and catalog ALL config-like files at BOTH project
 - .claude/agents/ directory
 - .claude/rules/ directory (project-level)
 - Shared frameworks, guardrails, style guides (shared/, frameworks/, etc.)
-- Memory files at BOTH ~/.claude/projects/[project-path]/memory/ AND ~/.claude/projects/-Users-terence/memory/ (global)
+- Memory files at BOTH ~/.claude/projects/[project-path]/memory/ AND the user's global-level memory directory (typically ~/.claude/projects/-[home-dir]/memory/)
 - Settings files: project .claude/settings.json, .claude/settings.local.json, global ~/.claude/settings.json, ~/.claude/settings.local.json
 - Voice/brand files (vault/, brand/, etc.)
 - Any other instruction-like .md files governing behavior
@@ -103,6 +106,8 @@ Return a structured report:
 Keep total output under 400 words. Cite session dates and target files.
 
 ## Phase 3: Current Conversation Analysis (Foreground)
+
+**If scope = "Config audit only":** Skip this phase entirely.
 
 **Announce:** "Analyzing current conversation for patterns, feedback, and techniques..."
 
@@ -185,6 +190,8 @@ When suggesting "convert to hook", **generate the complete implementation**:
 }
 ```
 
+**Path quoting:** Before generating any hook command, check if the project path contains spaces. If yes, wrap the script path: `bash '/path with spaces/hook.sh'` instead of bare `/path with spaces/hook.sh`. Bare paths with spaces break when the shell splits them into separate arguments.
+
 When presenting enforcement gap findings in Phase 5, offer three options:
 - "Strengthen rule" — rewrite with NEVER/ALWAYS emphasis, move to top of file
 - "Convert to hook" — create a hook that enforces the rule deterministically. Include the generated JSON config in the finding. Follow up with a second AskUserQuestion: "Which scope should this hook be configured at?" with options: "Project (.claude/settings.json)", "Global (~/.claude/settings.json)", "Project local (.claude/settings.local.json)"
@@ -200,21 +207,41 @@ When history scan shows the same feedback across 2+ sessions, suggest PROMOTING:
 - Implicit pattern → explicit documented rule with examples
 - Soft guideline → hard rule with enforcement language
 
+**Promotion Cleanup:** When suggesting a memory → CLAUDE.md promotion, ALSO include a recommendation to delete the original memory file in the same finding. Present both actions together: "Promote rule X to CLAUDE.md Quality Standards AND delete the original memory file [path]." This prevents the duplication pattern where promoted rules exist in both locations.
+
 ### 4c: Config Health & Consolidation
 
 Run ALL sub-checks against BOTH project-level and global-level configs from the Discovery Agent config map.
 
 #### Size Thresholds
 Measure CLAUDE.md (both project and global) line count and character count.
-- **Warning:** >100 lines or >20K characters
-- **Critical:** >150 lines or >40K characters (known performance degradation point)
-- Also count total memory files — flag if >20 files in a single project's memory directory
+- **Warning:** >150 lines or >20K characters
+- **Critical:** >200 lines or >40K characters (Anthropic officially recommends under 200 lines per CLAUDE.md; academic research confirms linear compliance decay with instruction count)
+- Also measure MEMORY.md line count — **Warning:** >120 lines (~60% of 200-line truncation limit), **Critical:** >160 lines (~80%). Secondary: flag if >50 memory files in a single project's memory directory, Critical >70 files.
 
 #### Memory Consolidation
 - Read all memory files and group by topic similarity
 - Flag duplicates or heavily overlapping files (e.g., two feedback files covering the same rule) — recommend merging
 - Flag memory files with stale references: files, functions, or features mentioned in the memory that no longer exist in the codebase
 - Flag memory files with relative dates that were never converted to absolute
+
+#### Cross-Reference Memory vs CLAUDE.md (Promoted-But-Not-Cleaned)
+
+For each feedback-type memory file, grep CLAUDE.md Quality Standards for the key phrase from the memory's core rule.
+- If CLAUDE.md contains the same rule with matching scope and intent: flag memory as **redundant (already promoted)**
+- Present with grep evidence: "This memory was promoted to CLAUDE.md line N but the original was never cleaned up"
+- Recommend deletion of the memory file (the CLAUDE.md version is authoritative)
+
+This catches the pattern where auto-memory or a prior /improve run promoted a rule to CLAUDE.md but never deleted the original memory file.
+
+#### Stale Project Memory Detection
+
+For each project-type memory file:
+1. Check if the memory references a specific RC version or milestone
+2. Compare against the current milestone (from FEATURE-INDEX.md or `git log --oneline -5`)
+3. If the memory's context is 2+ RC versions behind current: flag as **potentially stale**
+4. Check if the memory describes a completed one-time event (audit result, retest completion, deployment verification) vs an ongoing decision or constraint
+5. Flag completed events as "stale — recommend deletion" and ongoing decisions as "historical reference — recommend keeping or merging with similar memories"
 
 #### Mandatory Redundancy Verification
 
@@ -267,6 +294,19 @@ Present contradictions as Critical-tier findings with both sources cited (file p
 
 #### Content Placement Audit
 
+#### Quality Standards Distribution
+
+Scan CLAUDE.md Quality Standards section specifically. Classify each rule as:
+- **Universal** — applies across all tasks and skills (e.g., "ALWAYS use AskUserQuestion for decisions")
+- **Brainstorming-relevant** — needed during design/conceptualization phases before specific skills load (e.g., "Complete investigation before proposing ticket structure")
+- **Skill-specific** — only relevant during a specific skill's execution (e.g., "Read service code before designing end-to-end tests" applies only during ft-testing/test-plan)
+
+For skill-specific rules: recommend moving to the skill file if not already present, or removing from CLAUDE.md if already in the skill.
+For brainstorming-relevant rules: recommend keeping in CLAUDE.md but shortening to a one-liner if verbose.
+For universal rules: keep as-is.
+
+**Classification heuristic:** A rule is brainstorming-relevant if it guides design decisions or investigation approach before a specific skill activates. A rule is skill-specific if it only applies during one skill's execution and would never be needed outside that context.
+
 Check 5 directions for misplaced content:
 
 **Direction 1: CLAUDE.md → Skill Files**
@@ -277,6 +317,7 @@ Check 5 directions for misplaced content:
 **Direction 2: Memory → Skills**
 - Scan memory files for entries with type `feedback` or `project` that contain multi-step procedures, decision trees, or workflow descriptions
 - If a memory file reads more like a how-to than a fact, flag it: "This memory contains procedural knowledge — consider converting to a skill"
+- **Single-skill feedback detection:** For each feedback memory, determine if it contains a rule specific to ONE existing skill's execution context (e.g., a rule about how ticket-writer should handle red flags, or how ft-testing should handle autonomous mode). If so, recommend baking it into that skill file and deleting the memory. Present: "This feedback rule is specific to [skill] — recommend integrating into [skill file path] and deleting the memory."
 
 **Direction 3: Skill Files → CLAUDE.md**
 - Scan each skill for universal behavioral rules — rules about general Claude behavior across sessions/tasks
@@ -294,7 +335,7 @@ Check 5 directions for misplaced content:
 
 Calculate total character count across ALL skill `description` fields (from frontmatter of all skill/command files at both project and global levels).
 
-Community research suggests a ~16K character budget for skill metadata — skills beyond this may be silently invisible (cannot be discovered or invoked). **Note: this figure is community-discovered, not officially documented by Anthropic, and may change.**
+Skill metadata uses a fraction-based budget (default: `skillListingBudgetFraction` = 0.01 in settings, ~1% of context baseline). Skills exceeding the budget are silently dropped from the system prompt. Run `/doctor` or `/context` to verify which skills are visible. If skills are being dropped, suggest adding `"skillListingBudgetFraction": 0.03` to settings.json. **Note: exact budget mechanics are subject to change with Claude Code updates.**
 
 - **Warning:** >12K chars (~75% of estimated budget)
 - **Elevated:** >15K chars (~94% of estimated budget)
@@ -402,6 +443,10 @@ When Memory Consolidation in Phase 4c identifies redundant files:
 
 Do NOT defer consolidation decisions to Phase 6. The user wants to review and approve each consolidation during the interactive finding presentation.
 
+**BLOCKING: Batch grep verification before presenting deletions.** BEFORE presenting any delete-as-redundant finding to the user, run a batch grep verification on ALL proposed deletions. Only present files as deletable after grep confirms the match. Include grep evidence inline: "Verified: [file] line N contains [matched text]." Files with zero grep matches must be presented with placement options (keep/bake-into-skill/promote) instead of delete.
+
+**Memory finding question format:** For memory consolidation findings, always include: "Recommendation: [delete (redundant, verified: {grep evidence}) / keep as memory / bake into {specific skill name} / promote to CLAUDE.md] — [rationale]." Options should match the recommended placements, not generic Accept/Reject.
+
 ### Presentation
 
 **FIRST — Audit of Prior `/improve` Runs (full scope only)**
@@ -438,6 +483,10 @@ If 8+ findings, after presenting 5, ask: "Continue with remaining findings, or a
 ## Phase 6: Apply Changes
 
 **Announce:** "Applying N approved changes across M files..."
+
+**Scaling guidance:** For 10+ approved changes, group changes by target file and execute in parallel waves using sub-agents. Constraint: no two agents edit the same file in the same wave. For <10 changes, sequential execution is fine. When using parallel waves, present the wave structure to the user before executing: "Wave 1: [agents], Wave 2 (after Wave 1): [agents]."
+
+**Verify-before-removing gate:** Before executing ANY removal (deleting a memory file, removing a CLAUDE.md rule, or deleting a skill section), re-grep the target destination to confirm the rule actually exists there. If the grep fails — the rule was approved for removal based on a claim it existed elsewhere, but it doesn't — skip the removal and flag it: "SKIPPED: [rule] was approved for removal but grep shows it's not in [target]. Keeping original." This catches false-positive audit claims that pass Phase 4c verification but don't survive a second check at execution time.
 
 1. Group approved changes by file
 2. Edit existing files with approved modifications
@@ -513,3 +562,17 @@ After Phase 6 completes (regardless of whether any changes were applied), update
 - Acceptance: Critical 3/3, Improvement 2/4, User Coaching 0/1
 - Modify signal: User changed "NEVER" to "Avoid" in a style rule
 ```
+
+## Comprehensive Config Session Mode
+
+When the user explicitly requests a dedicated config improvement session (e.g., "full config sweep", "comprehensive improvement", "update the entire repository config"), the standard /improve workflow adapts:
+
+**How it differs from end-of-session runs:**
+- Full memory audit becomes a dedicated phase: read every memory file, grep-verify each against CLAUDE.md and skills, present candidates by category (redundant/stale/promote-to-skill/promote-to-CLAUDE.md)
+- Phase 6 uses wave-based parallel execution (group changes by file, execute via sub-agents with no-conflict constraint)
+- Plan mode integration: after presenting all findings via AskUserQuestion, enter plan mode to write the execution plan, get PM approval, then execute
+- The user expects to pick and choose each improvement individually — never batch into an assumed-approval plan
+
+**Detection signals:** User says "full sweep", "comprehensive", "config update", "improve everything", "config audit", or explicitly requests memory consolidation / skill standardization.
+
+**Key lesson (June 2026):** Presenting improvements one-at-a-time via AskUserQuestion achieved 100% acceptance rate in a dedicated session. Batch plans that assumed all items were rejected for individual review.

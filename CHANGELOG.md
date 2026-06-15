@@ -4,6 +4,28 @@ All notable changes to the `/improve` skill are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [3.2.0] - 2026-06-15
+
+### Added
+- **Config Audit Only Scope**: Third scope option — skips conversation analysis entirely, runs only config health checks. Ideal for standalone maintenance from a fresh conversation.
+- **Batch Grep Verification Gate**: BLOCKING requirement before presenting delete-as-redundant findings — all proposed deletions must be grep-verified with evidence inline. Files with zero matches get placement options instead.
+- **Verify-Before-Removing Gate**: Before executing any removal in Phase 6, re-grep the target destination to catch false-positive audit claims from Phase 4c.
+- **Wave-Based Parallel Execution**: For 10+ approved changes in Phase 6, groups changes by file and executes via parallel sub-agents with no-conflict constraint.
+- **Promoted-But-Not-Cleaned Detection**: New memory audit sub-check — catches memory files that were promoted to CLAUDE.md but never deleted, using grep verification with evidence.
+- **Stale Project Memory Detection**: Flags project-type memories referencing old RC versions or completed one-time events, distinguishing deletable from keepable.
+- **Single-Skill Feedback Detection**: Identifies feedback memories specific to one skill's execution context and recommends baking into that skill file.
+- **Quality Standards Distribution Analysis**: Classifies CLAUDE.md Quality Standards rules as Universal, Brainstorming-relevant, or Skill-specific, with placement recommendations.
+- **Memory File Monitoring**: Size threshold monitoring for MEMORY.md (warning >120 lines, critical >160) and memory file count (warning >50, critical >70).
+- **Promotion Cleanup**: When promoting memory → CLAUDE.md, recommends deleting the original memory file in the same finding to prevent duplication.
+- **Enhanced Memory Finding Question Format**: Consolidation findings now include grep evidence and specific placement recommendations instead of generic Accept/Reject.
+- **Comprehensive Config Session Mode**: New end-of-file section adapting the /improve workflow for dedicated config improvement sessions — full memory audit as dedicated phase, wave execution, plan mode integration.
+
+### Changed
+- **Size Thresholds Raised**: CLAUDE.md warning from >100 to >150 lines; critical from >150 to >200 lines (aligns with Anthropic's official recommendation). Character thresholds unchanged.
+- **Skill Budget Guidance Enhanced**: Now references `skillListingBudgetFraction` setting, `/doctor` and `/context` commands, and settings.json adjustment instead of generic budget note.
+- **Hook Path Quoting**: Added guidance to wrap hook command paths containing spaces as `bash '/path with spaces/hook.sh'` to prevent shell splitting errors.
+- **Generalized personal path reference**: Discovery Agent memory path now uses a generic description instead of a hardcoded username.
+
 ## [3.1.0] - 2026-05-05
 
 ### Added

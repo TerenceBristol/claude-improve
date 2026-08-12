@@ -4,6 +4,17 @@ All notable changes to the `/improve` skill are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.0.1] - 2026-08-12
+
+### Fixed
+- **History scan message type**: session `.jsonl` user messages are `"type":"user"`, not `"type":"human"` — the historical scan script instruction now matches the real format (followed literally, the old wording found nothing).
+- **README Example Finding** updated to the v4 compact-list format (recommendation line instead of per-finding Accept/Reject/Modify, which is now the opt-in walkthrough).
+- **Stale "always full sweep" wording** in the frontmatter description and intro, which contradicted the v4 scope defaults and the scope-limiting `config audit` argument — now says every run checks all finding categories.
+- **"config audit" ambiguity**: clarified that `/improve config audit` invokes the light single-pass scope, and Comprehensive Config Session Mode requires an explicit request for a dedicated session (removed "config audit" from that mode's detection signals).
+- **Generalized author-specific examples** (private skill names, milestone-index filename, "RC version" jargon) into generic equivalents; removed a dated anecdote.
+- **"CLAUDE.md Quality Standards" hedged** with "or equivalent rules section" everywhere it's scanned — not every CLAUDE.md has that section.
+- **README pipeline description** now mentions all three full-scope background agents and the prior-runs audit table; per-project learnings path now explains the directory-name mangling.
+
 ## [4.0.0] - 2026-08-12
 
 ### Added

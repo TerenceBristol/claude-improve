@@ -1,6 +1,6 @@
 ---
 name: improve
-description: Review the current conversation and recent session history to suggest improvements to the project's configuration — CLAUDE.md, skills, frameworks, memory, agents. Always does a full sweep. Arguments add extra weight to specific areas. Works on any repo structure.
+description: Review the current conversation and recent session history to suggest improvements to the project's configuration — CLAUDE.md, skills, frameworks, memory, agents. Checks all finding categories every run. Arguments add extra weight to specific areas. Works on any repo structure.
 ---
 
 # Retrospective
@@ -9,7 +9,7 @@ Review conversation + recent history, cross-reference against config files, pres
 
 **Announce:** "Starting retrospective..."
 
-**Arguments = targeted feedback.** Always full sweep. Args get highest priority but don't limit scope. Works mid-conversation or end-of-session.
+**Arguments = targeted feedback.** Every run still checks all finding categories; args get highest priority but don't narrow the coverage. Exception: the reserved argument `config audit` selects config-audit scope (see Scope Selection). Works mid-conversation or end-of-session.
 
 ## Load Learnings
 
@@ -37,7 +37,7 @@ Before launching any agents, ask the user:
 
 Store the answer as the `scope` for the rest of the skill.
 
-**Config audit mode is argument-invoked, not offered in the question.** When the user runs `/improve config audit` (or explicitly asks for a standalone config health scan), skip the scope question and set scope = "Config audit only": no conversation analysis — full config health scan (memory consolidation, CLAUDE.md bloat, content placement, skill consistency). Best run from a fresh conversation for standalone maintenance.
+**Config audit mode is argument-invoked, not offered in the question.** When the user runs `/improve config audit` (or explicitly asks for a standalone config health scan), skip the scope question and set scope = "Config audit only": no conversation analysis — full config health scan (memory consolidation, CLAUDE.md bloat, content placement, skill consistency). Best run from a fresh conversation for standalone maintenance. This is a single-pass scan; only escalate to the heavier Comprehensive Config Session Mode (end of this skill) when the user explicitly asks for a dedicated config improvement session.
 
 ## Phase 1 & 2: Discovery + History Scan (Background, Parallel)
 
@@ -69,7 +69,7 @@ Prompt the agent to:
 1. Write a bash script that:
    - Lists .jsonl session files from `~/.claude/projects/[project-path]/`
    - Sorts by modification date, takes 5 most recent (excluding current session)
-   - For each file, extracts ONLY lines containing user messages (type "human") — skip assistant responses and tool calls
+   - For each file, extracts ONLY lines containing user messages (type "user") — skip assistant responses and tool calls
    - From user messages, filters for feedback signals:
      - Corrections: "no", "don't", "stop", "not that", "wrong", "actually", "instead"
      - Praise: "yes", "perfect", "exactly", "great", "love", "nice"
@@ -233,7 +233,7 @@ Measure CLAUDE.md (both project and global) line count and character count.
 
 #### Cross-Reference Memory vs CLAUDE.md (Promoted-But-Not-Cleaned)
 
-For each feedback-type memory file, grep CLAUDE.md Quality Standards for the key phrase from the memory's core rule.
+For each feedback-type memory file, grep CLAUDE.md (its Quality Standards section, or equivalent rules sections) for the key phrase from the memory's core rule.
 - If CLAUDE.md contains the same rule with matching scope and intent: flag memory as **redundant (already promoted)**
 - Present with grep evidence: "This memory was promoted to CLAUDE.md line N but the original was never cleaned up"
 - Recommend deletion of the memory file (the CLAUDE.md version is authoritative)
@@ -243,9 +243,9 @@ This catches the pattern where auto-memory or a prior /improve run promoted a ru
 #### Stale Project Memory Detection
 
 For each project-type memory file:
-1. Check if the memory references a specific RC version or milestone
-2. Compare against the current milestone (from FEATURE-INDEX.md or `git log --oneline -5`)
-3. If the memory's context is 2+ RC versions behind current: flag as **potentially stale**
+1. Check if the memory references a specific release version or milestone
+2. Compare against the current milestone (from the project's milestone/feature index doc if one exists, or `git log --oneline -5`)
+3. If the memory's context is 2+ release versions behind current: flag as **potentially stale**
 4. Check if the memory describes a completed one-time event (audit result, retest completion, deployment verification) vs an ongoing decision or constraint
 5. Flag completed events as "stale — recommend deletion" and ongoing decisions as "historical reference — recommend keeping or merging with similar memories"
 
@@ -302,10 +302,10 @@ Present contradictions as Critical-tier findings with both sources cited (file p
 
 #### Quality Standards Distribution
 
-Scan CLAUDE.md Quality Standards section specifically. Classify each rule as:
+Scan CLAUDE.md's Quality Standards section (or equivalent rules section, if present) specifically. Classify each rule as:
 - **Universal** — applies across all tasks and skills (e.g., "ALWAYS use AskUserQuestion for decisions")
 - **Brainstorming-relevant** — needed during design/conceptualization phases before specific skills load (e.g., "Complete investigation before proposing ticket structure")
-- **Skill-specific** — only relevant during a specific skill's execution (e.g., "Read service code before designing end-to-end tests" applies only during ft-testing/test-plan)
+- **Skill-specific** — only relevant during a specific skill's execution (e.g., "Read service code before designing end-to-end tests" applies only while a testing skill is running)
 
 For skill-specific rules: recommend moving to the skill file if not already present, or removing from CLAUDE.md if already in the skill.
 For brainstorming-relevant rules: recommend keeping in CLAUDE.md but shortening to a one-liner if verbose.
@@ -323,7 +323,7 @@ Check 5 directions for misplaced content:
 **Direction 2: Memory → Skills**
 - Scan memory files for entries with type `feedback` or `project` that contain multi-step procedures, decision trees, or workflow descriptions
 - If a memory file reads more like a how-to than a fact, flag it: "This memory contains procedural knowledge — consider converting to a skill"
-- **Single-skill feedback detection:** For each feedback memory, determine if it contains a rule specific to ONE existing skill's execution context (e.g., a rule about how ticket-writer should handle red flags, or how ft-testing should handle autonomous mode). If so, recommend baking it into that skill file and deleting the memory. Present: "This feedback rule is specific to [skill] — recommend integrating into [skill file path] and deleting the memory."
+- **Single-skill feedback detection:** For each feedback memory, determine if it contains a rule specific to ONE existing skill's execution context (e.g., a rule about how a ticket-writing skill should handle red flags, or how a testing skill should handle autonomous mode). If so, recommend baking it into that skill file and deleting the memory. Present: "This feedback rule is specific to [skill] — recommend integrating into [skill file path] and deleting the memory."
 
 **Direction 3: Skill Files → CLAUDE.md**
 - Scan each skill for universal behavioral rules — rules about general Claude behavior across sessions/tasks
@@ -414,7 +414,7 @@ Confidence doesn't change priority order (Critical still beats Improvement regar
 
 For each finding, recommend the optimal target based on scope:
 - If the finding is a procedural rule that only applies during a specific skill's execution → target that skill file, not memory
-- If the finding applies across 2+ skills but isn't universal → CLAUDE.md Quality Standards
+- If the finding applies across 2+ skills but isn't universal → CLAUDE.md (Quality Standards or equivalent rules section)
 - If the finding is a fact or reference → memory file
 - ALWAYS recommend a specific placement with rationale. Never present equal-weight options without a recommendation.
 
@@ -594,6 +594,6 @@ When the user explicitly requests a dedicated config improvement session (e.g., 
 - Plan mode integration: after presenting all findings (compact list + decision questions per Phase 5), enter plan mode to write the execution plan, get user approval, then execute
 - The user expects an explicit decision on each improvement individually (via the findings list + decision questions, or the per-finding walkthrough if they opt in) — never batch items into an assumed-approval plan
 
-**Detection signals:** User says "full sweep", "comprehensive", "config update", "improve everything", "config audit", or explicitly requests memory consolidation / skill standardization.
+**Detection signals:** User says "full sweep", "comprehensive", "config update", "improve everything", or explicitly requests memory consolidation / skill standardization as a dedicated session. (A bare `/improve config audit` invokes the lighter single-pass config-audit scope from Scope Selection, NOT this mode.)
 
-**Key lesson (June 2026):** Securing an explicit per-item decision before executing achieved 100% acceptance rate in a dedicated session. Batch plans that assumed all items were approved were rejected for individual review.
+**Key lesson:** Securing an explicit per-item decision before executing achieves near-100% acceptance in dedicated sessions. Batch plans that assume all items are approved get rejected for individual review.

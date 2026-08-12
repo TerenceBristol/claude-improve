@@ -50,7 +50,7 @@ cp improve.md ~/.claude/commands/improve.md
 `/improve` maintains two learnings files automatically:
 
 - **`~/.claude/improve-learnings.md`** (global) — Cross-project patterns about how you like the skill and rule-writing to work: presentation preferences, scope habits, modify signals. Read at the start of every run in every project.
-- **`~/.claude/projects/<project-path>/improve-learnings.md`** (per project) — That project's distilled patterns, deferral counters, and a date-keyed run log. Lives in Claude Code's own per-project data directory under your home folder, so it never touches your repo.
+- **`~/.claude/projects/<project-path>/improve-learnings.md`** (per project) — That project's distilled patterns, deferral counters, and a date-keyed run log. Lives in Claude Code's own per-project data directory under your home folder, so it never touches your repo. Note: `<project-path>` is the project's absolute path with every `/`, space, and `.` replaced by `-` (e.g. `/Users/jane/Code/my-app` → `-Users-jane-Code-my-app`) — the same directory naming Claude Code uses for session files.
 
 Both are auto-managed — no manual editing needed. Delete either anytime to reset. Patterns confirmed across ~5 runs get proposed for promotion into your actual config (skill/CLAUDE.md/settings) and removed from learnings, so the files stay small and your config — not a side file — stays the source of truth. If you used a pre-4.0 version, your existing `~/.claude/improve-learnings.md` keeps working as the global file; project state migrates naturally as runs happen.
 
@@ -70,7 +70,7 @@ Both are auto-managed — no manual editing needed. Delete either anytime to res
 | **5. Present Findings** | All findings arrive as one compact list, ranked by impact, each with evidence and a recommendation. Genuine decisions get resolved via follow-up questions; ask to "walk me through them" for a per-finding accept/reject/modify flow. Nothing changes without your approval. |
 | **6. Apply** | Writes the approved changes — edits to config files, new hooks in settings.json, rule extractions, memory merges, skill creation, and memory entries. |
 
-Phases 1 and 2 run in parallel as background agents. Phase 3 runs simultaneously. This means the skill starts producing findings quickly.
+In full scope, up to three background agents run in parallel (discovery, history scan, and a prior-improve audit that verifies whether previously accepted changes actually landed — its results open Phase 5 as an audit table). Phase 3 runs simultaneously. This means the skill starts producing findings quickly.
 
 ---
 
@@ -111,7 +111,7 @@ Findings are ranked into 10 tiers, from highest to lowest priority:
 
 ## Example Finding
 
-Here's what a finding looks like when presented during Phase 5:
+Here's what a finding looks like inside Phase 5's compact list:
 
 ```
 [Critical | High] — Source: 2026-04-28 — Enforcement gap detected.
@@ -121,11 +121,10 @@ but was violated 3x in recent sessions.
 
 File: ~/.claude/CLAUDE.md
 Proposed: Convert to hook (deterministic enforcement).
-
-Options: Accept / Reject / Modify
+Recommendation: Convert to hook — this rule keeps slipping as advisory text.
 ```
 
-Each finding shows its priority tier, confidence level, source, and a specific proposed change. Nothing happens without your approval.
+Each finding shows its priority tier, confidence level, source, a specific proposed change, and a recommendation. Items needing a genuine decision get a follow-up question; in the opt-in per-finding walkthrough, each finding instead ends with Accept / Reject / Modify options. Nothing happens without your approval.
 
 ---
 

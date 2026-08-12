@@ -2,11 +2,11 @@
 
 A self-improving retrospective skill for Claude Code. One command makes your AI agents get better after every conversation.
 
-`/improve` reviews your conversations, detects patterns in your feedback, cross-references against your config files, and suggests targeted improvements — one at a time, with your approval.
+`/improve` reviews your conversations, detects patterns in your feedback, cross-references against your config files, and suggests targeted improvements — presented as a ranked findings list, applied only with your approval.
 
 The model stays the same. The instructions get smarter.
 
-> **v3.2.0** — Added config audit-only scope, safety verification gates, enhanced memory auditing, and wave-based parallel execution. See [Releases](https://github.com/TerenceBristol/claude-improve/releases) for the full changelog.
+> **v4.0.0** — Two-level learnings (global preferences + per-project state), compact findings-list presentation by default, simplified scope question, and a settled-pattern promotion rule so learnings graduate into your config. See [Releases](https://github.com/TerenceBristol/claude-improve/releases) for the full changelog.
 
 ---
 
@@ -47,24 +47,27 @@ cp improve.md ~/.claude/commands/improve.md
 
 ## Files Created
 
-`/improve` creates one file automatically:
+`/improve` maintains two learnings files automatically:
 
-- **`~/.claude/improve-learnings.md`** — Tracks acceptance patterns from your runs. The skill reads this before each run to adapt its behavior (deprioritize findings you consistently reject, boost what you accept). Auto-managed — no manual editing needed. Delete it anytime to reset learning.
+- **`~/.claude/improve-learnings.md`** (global) — Cross-project patterns about how you like the skill and rule-writing to work: presentation preferences, scope habits, modify signals. Read at the start of every run in every project.
+- **`~/.claude/projects/<project-path>/improve-learnings.md`** (per project) — That project's distilled patterns, deferral counters, and a date-keyed run log. Lives in Claude Code's own per-project data directory under your home folder, so it never touches your repo.
+
+Both are auto-managed — no manual editing needed. Delete either anytime to reset. Patterns confirmed across ~5 runs get proposed for promotion into your actual config (skill/CLAUDE.md/settings) and removed from learnings, so the files stay small and your config — not a side file — stays the source of truth. If you used a pre-4.0 version, your existing `~/.claude/improve-learnings.md` keeps working as the global file; project state migrates naturally as runs happen.
 
 ---
 
 ## How It Works
 
-`/improve` starts by asking what scope you want — **full scan** (history + current conversation), **current conversation only**, or **config audit only** (standalone maintenance) — then runs its analysis:
+`/improve` starts by asking what scope you want — **current conversation only** (the default) or **historical + current** (full scan). A third mode, **config audit only** (standalone config maintenance, no conversation analysis), is invoked explicitly with `/improve config audit`. Then it runs its analysis:
 
 | Phase | What It Does |
 |-------|-------------|
-| **Scope Selection** | Choose "Historical + current conversation" for the full scan, "Current conversation only" for a quick session-focused retrospective, or "Config audit only" for standalone config maintenance without conversation analysis. |
+| **Scope Selection** | "Current conversation only" for a quick session-focused retrospective (default), or "Historical + current conversation" for the full scan. |
 | **1. Discovery** | A background agent maps every config file at both project and global levels — CLAUDE.md, skills, agents, frameworks, memory, settings files, and `.claude/rules/`. |
 | **2. History Scan** | Another background agent reads your last 5 sessions, extracts user messages, and filters for corrections, praise, friction, and explicit feedback. *(Full scope only)* |
 | **3. Live Analysis** | Analyzes your current conversation for 9 different signal types — corrections, praise, capability gaps, techniques that worked, and more. |
 | **4. Cross-Reference** | Reads your actual config files and checks for enforcement gaps (with hook promotion), recurring patterns, and 8 structured config health checks including size thresholds, memory consolidation (with promoted-but-not-cleaned and stale memory detection), skill consolidation, and cross-level analysis. |
-| **5. Present Findings** | Each finding shows up one at a time, ranked by impact. You accept, reject, or modify. Nothing changes without your approval. |
+| **5. Present Findings** | All findings arrive as one compact list, ranked by impact, each with evidence and a recommendation. Genuine decisions get resolved via follow-up questions; ask to "walk me through them" for a per-finding accept/reject/modify flow. Nothing changes without your approval. |
 | **6. Apply** | Writes the approved changes — edits to config files, new hooks in settings.json, rule extractions, memory merges, skill creation, and memory entries. |
 
 Phases 1 and 2 run in parallel as background agents. Phase 3 runs simultaneously. This means the skill starts producing findings quickly.

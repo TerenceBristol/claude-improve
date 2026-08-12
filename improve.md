@@ -5,7 +5,7 @@ description: Review the current conversation and recent session history to sugge
 
 # Retrospective
 
-Review conversation + recent history, cross-reference against config files, present improvement suggestions one at a time.
+Review conversation + recent history, cross-reference against config files, present improvement suggestions as a compact findings list with per-item recommendations.
 
 **Announce:** "Starting retrospective..."
 
@@ -13,12 +13,17 @@ Review conversation + recent history, cross-reference against config files, pres
 
 ## Load Learnings
 
-Before scope selection, read `~/.claude/improve-learnings.md` if it exists. This file tracks patterns from prior runs: acceptance rates by category, modify signals, user preferences.
+Before scope selection, read BOTH learnings files if they exist:
+
+1. **Global learnings** — `~/.claude/improve-learnings.md`: cross-project patterns about how the user likes /improve and rule-writing to work (presentation format, scope habits, rule-style modify signals). Applies in every project.
+2. **Project learnings** — `~/.claude/projects/<mangled-project-path>/improve-learnings.md`: this project's distilled patterns, deferral counters, and date-keyed run log. Derive `<mangled-project-path>` by taking the project's absolute path and replacing every `/`, space, and `.` with `-` (e.g. `/Users/jane/Code/my-app` → `-Users-jane-Code-my-app`) — the same directory Claude Code uses for this project's session files. If the computed directory doesn't exist, list `~/.claude/projects/` and match by project name before creating anything.
+
+Apply what you load:
 
 - **Deprioritize** finding types consistently rejected across runs
 - **Boost** categories consistently accepted
 - **Adapt** rule-writing style based on modify signals (e.g., if user repeatedly softens NEVER to Avoid, propose softer language for non-critical rules)
-- If file doesn't exist, proceed normally — it will be created at the end of this run
+- If either file doesn't exist, proceed normally — missing files are created at the end of this run
 
 ## Scope Selection
 
@@ -27,11 +32,12 @@ Before launching any agents, ask the user:
 **Question:** "What scope should this retrospective cover?"
 
 **Options (AskUserQuestion):**
+- **Current conversation only (default)** — Analyze only this session's patterns and feedback
 - **Historical + current conversation** — Full scan: history from recent sessions, prior /improve audit, plus current conversation analysis
-- **Current conversation only** — Analyze only this session's patterns and feedback
-- **Config audit only** — No conversation analysis. Full config health scan: memory consolidation, CLAUDE.md bloat, content placement, skill consistency. Use from a fresh conversation for standalone maintenance.
 
 Store the answer as the `scope` for the rest of the skill.
+
+**Config audit mode is argument-invoked, not offered in the question.** When the user runs `/improve config audit` (or explicitly asks for a standalone config health scan), skip the scope question and set scope = "Config audit only": no conversation analysis — full config health scan (memory consolidation, CLAUDE.md bloat, content placement, skill consistency). Best run from a fresh conversation for standalone maintenance.
 
 ## Phase 1 & 2: Discovery + History Scan (Background, Parallel)
 
@@ -414,7 +420,7 @@ For each finding, recommend the optimal target based on scope:
 
 ## Phase 5: Present Findings
 
-**Announce:** "Found N findings across M categories. Presenting one at a time, most impactful first."
+**Announce:** "Found N findings across M categories. Presenting the full list, most impactful first."
 
 ### Rule-Writing Quality Standards
 
@@ -436,12 +442,12 @@ The user values opinionated recommendations over equal-weight menus. Present the
 ### Memory Consolidation Findings (present during Phase 5, not Phase 6)
 
 When Memory Consolidation in Phase 4c identifies redundant files:
-- Present the consolidation analysis as findings in Phase 5 (one at a time via AskUserQuestion)
+- Present the consolidation analysis as findings in Phase 5 (in the compact findings list, or per-finding if the user opted into the walkthrough)
 - Include: which files are redundant, WHERE each rule should be integrated, and what will be removed
-- Get user approval for each consolidation group before proceeding
+- Get user approval for each consolidation group before proceeding — consolidations always count as decisions needing explicit user input
 - Phase 6 then EXECUTES the approved consolidations (integrate + delete)
 
-Do NOT defer consolidation decisions to Phase 6. The user wants to review and approve each consolidation during the interactive finding presentation.
+Do NOT defer consolidation decisions to Phase 6. The user wants to review and approve each consolidation during the finding presentation.
 
 **BLOCKING: Batch grep verification before presenting deletions.** BEFORE presenting any delete-as-redundant finding to the user, run a batch grep verification on ALL proposed deletions. Only present files as deletable after grep confirms the match. Include grep evidence inline: "Verified: [file] line N contains [matched text]." Files with zero grep matches must be presented with placement options (keep/bake-into-skill/promote) instead of delete.
 
@@ -466,11 +472,11 @@ In full scope, before presenting any new findings, surface the Prior-Improve Cro
 
 This gives the user confidence (verified-implemented), highlights drift (needs re-application), and re-surfaces previously-skipped items as new findings to reconsider. NEVER silently drop prior findings — always show the verification.
 
-**THEN — Present Each Finding via AskUserQuestion**
+**THEN — Present All Findings as a Compact List (default)**
 
-**Question format:** "[Tier | Confidence] — [Source: current conversation / past session date] — [Description of finding and proposed change]. File: [full path]. Proposed: [what to add/modify/remove]"
+Present every finding in ONE chat message, grouped by tier, most impactful first. Each finding is a short block:
 
-**Options:** Accept / Reject / Modify
+**Format:** "[Tier | Confidence] — [Source: current conversation / past session date] — [Description of finding and proposed change]. File: [full path]. Proposed: [what to add/modify/remove]. Recommendation: [specific recommended action]"
 
 **Order:**
 1. Drifted items (prior accept didn't land — needs re-application)
@@ -478,7 +484,9 @@ This gives the user confidence (verified-implemented), highlights drift (needs r
 3. Targeted (from /improve args)
 4. Critical → Promotion → Content Misplacement → Improvement → Technique → Maintenance → Reinforcement → New Skill → User Coaching
 
-If 8+ findings, after presenting 5, ask: "Continue with remaining findings, or apply what we have so far?"
+After the list, resolve ONLY the items that genuinely need a user decision via AskUserQuestion (placement choices, hook scope, contested or low-confidence findings) — recommended option first. Then proceed to Phase 6, or, for large change sets, write an execution plan and get approval per the user's planning workflow before applying.
+
+**Opt-in alternative — per-finding walkthrough:** if the user asks to go one at a time ("walk me through them"), present each finding via AskUserQuestion with Accept / Reject / Modify options, in the same order. In this mode, if 8+ findings, after presenting 5, ask: "Continue with remaining findings, or apply what we have so far?"
 
 ## Phase 6: Apply Changes
 
@@ -540,28 +548,41 @@ If 8+ findings, after presenting 5, ask: "Continue with remaining findings, or a
 
 ## Save Learnings
 
-After Phase 6 completes (regardless of whether any changes were applied), update `~/.claude/improve-learnings.md`:
+After Phase 6 completes (regardless of whether any changes were applied), update BOTH learnings files. Content is split by kind, not duplicated:
 
-1. Read current file (or create if first run)
-2. Append new entry under `## Recent Runs`:
-   - Date of run
-   - Acceptance rate by category (e.g., "Critical: 3/3 accepted, User Coaching: 0/2 accepted")
-   - Any "Modify" choices that reveal preferences (e.g., "user softened NEVER→SHOULD for style rules")
-   - Detected patterns (e.g., "user prefers hooks over rule strengthening")
-3. If file exceeds 80 lines: summarize oldest raw entries into `## Patterns` section at the top (e.g., "3 runs rejected User Coaching tier → pattern: deprioritize"), then delete those raw entries
-4. Save updated file
+### 1. Project learnings file (`~/.claude/projects/<mangled-project-path>/improve-learnings.md` — create if missing, same path rule as Load Learnings)
 
-**File structure (for first-run creation):**
+- Append a date-keyed entry under `## Run Log`: heading `### YYYY-MM-DD — <one-line session signature>`. NO run numbers — date + signature only (run counters drift and collide).
+  - Scope chosen, acceptance rate by category (e.g., "Critical: 3/3 accepted")
+  - Deferral counter updates (e.g., "CLAUDE.md size: 5th deferral, 210 lines")
+  - Project-specific patterns or "Modify" signals from this run
+- Update `## Patterns` and `## Counters` sections when the run changes them
+
+**File structure (first-run creation):**
 ```
-# Improve Learnings
+# Improve Learnings — <project name>
 
-## Patterns (summarized from older runs)
+## Patterns (distilled, project-specific)
 
-## Recent Runs
-### YYYY-MM-DD
-- Acceptance: Critical 3/3, Improvement 2/4, User Coaching 0/1
-- Modify signal: User changed "NEVER" to "Avoid" in a style rule
+## Counters (live deferral/tracking state)
+
+## Run Log
+### YYYY-MM-DD — <one-line session signature>
+- Scope: current-only. Acceptance: Critical 3/3, Improvement 2/4.
 ```
+
+### 2. Global learnings file (`~/.claude/improve-learnings.md`)
+
+- Update ONLY when the run revealed something about how the user works ACROSS projects: presentation-format preferences, rule-writing modify signals (e.g., "user softened NEVER→SHOULD for style rules"), scope habits, tooling/enforcement preferences
+- NEVER store project state here: no counters, no run diaries, no project file sizes
+
+### Size enforcement (both files)
+
+After writing, check the file with `wc -l`. If a project file exceeds 80 lines, condense the oldest Run Log entries into `## Patterns` NOW — in this run, not "later" — then delete those raw entries. Keep the global file under ~40 lines the same way.
+
+### Settled-Pattern Promotion
+
+While updating, scan both files for any pattern confirmed across ~5+ runs. Settled behavior belongs in config, not learnings: surface each such pattern as a finding (this run if still practical, otherwise flag it for the next run) proposing to bake it into the skill file, CLAUDE.md, or settings — and DELETE it from learnings once baked. Learnings files track what's still being learned; without this rule they grow into a permanent patch layer that silently overrides the skill.
 
 ## Comprehensive Config Session Mode
 
@@ -570,9 +591,9 @@ When the user explicitly requests a dedicated config improvement session (e.g., 
 **How it differs from end-of-session runs:**
 - Full memory audit becomes a dedicated phase: read every memory file, grep-verify each against CLAUDE.md and skills, present candidates by category (redundant/stale/promote-to-skill/promote-to-CLAUDE.md)
 - Phase 6 uses wave-based parallel execution (group changes by file, execute via sub-agents with no-conflict constraint)
-- Plan mode integration: after presenting all findings via AskUserQuestion, enter plan mode to write the execution plan, get PM approval, then execute
-- The user expects to pick and choose each improvement individually — never batch into an assumed-approval plan
+- Plan mode integration: after presenting all findings (compact list + decision questions per Phase 5), enter plan mode to write the execution plan, get user approval, then execute
+- The user expects an explicit decision on each improvement individually (via the findings list + decision questions, or the per-finding walkthrough if they opt in) — never batch items into an assumed-approval plan
 
 **Detection signals:** User says "full sweep", "comprehensive", "config update", "improve everything", "config audit", or explicitly requests memory consolidation / skill standardization.
 
-**Key lesson (June 2026):** Presenting improvements one-at-a-time via AskUserQuestion achieved 100% acceptance rate in a dedicated session. Batch plans that assumed all items were rejected for individual review.
+**Key lesson (June 2026):** Securing an explicit per-item decision before executing achieved 100% acceptance rate in a dedicated session. Batch plans that assumed all items were approved were rejected for individual review.

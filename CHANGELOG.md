@@ -4,6 +4,21 @@ All notable changes to the `/improve` skill are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [4.0.0] - 2026-08-12
+
+### Added
+- **Two-Level Learnings System**: Learnings are now split by kind. A global file (`~/.claude/improve-learnings.md`) holds cross-project patterns about how you work (presentation preferences, modify signals, scope habits); a per-project file (`~/.claude/projects/<mangled-project-path>/improve-learnings.md`) holds each project's distilled patterns, deferral counters, and date-keyed run log. Both are read at the start of every run and updated at the end.
+- **Settled-Pattern Promotion**: Learnings patterns confirmed across ~5+ runs are surfaced as findings proposing promotion into the skill, CLAUDE.md, or settings — then deleted from learnings. Prevents the learnings file from becoming a permanent patch layer that silently overrides the skill.
+- **Enforced Size Summarization**: After every save, an actual `wc -l` check — project files over 80 lines are condensed immediately (oldest run entries → Patterns), global stays under ~40 lines.
+
+### Changed
+- **BREAKING — Findings presentation default**: Findings are now presented as one compact list in chat (grouped by tier, each with evidence, target file, and recommendation), with AskUserQuestion reserved for items genuinely needing a decision. The previous per-finding one-at-a-time walkthrough remains available on request ("walk me through them").
+- **BREAKING — Scope question simplified to 2 options**: "Current conversation only" (default, listed first) and "Historical + current conversation". Config-audit mode is no longer offered in the question — invoke it explicitly with `/improve config audit`.
+- **Run entries are date-keyed** (`### YYYY-MM-DD — session signature`), replacing global run counters, which drift and collide across projects.
+
+### Migration
+- Your existing `~/.claude/improve-learnings.md` keeps working as the global file. Project-specific content (counters, run history) migrates naturally: each project's file is created on that project's first v4 run. Optionally move project-specific patterns out of the global file by hand.
+
 ## [3.2.0] - 2026-06-15
 
 ### Added

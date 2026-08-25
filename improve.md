@@ -24,6 +24,7 @@ Apply what you load:
 - **Boost** categories consistently accepted
 - **Adapt** rule-writing style based on modify signals (e.g., if user repeatedly softens NEVER to Avoid, propose softer language for non-critical rules)
 - If either file doesn't exist, proceed normally — missing files are created at the end of this run
+- **Announce what loaded** in one line before scope selection: "Loaded learnings: N project patterns, M previously-rejected items suppressed, run log through YYYY-MM-DD" (or "No learnings files yet — first run for this project"). The learnings mechanism must be visible, never silent.
 
 ## Scope Selection
 
@@ -33,7 +34,7 @@ Before launching any agents, ask the user:
 
 **Options (AskUserQuestion):**
 - **Current conversation only (default)** — Analyze only this session's patterns and feedback
-- **Historical + current conversation** — Full scan: history from recent sessions, prior /improve audit, plus current conversation analysis
+- **Historical + current conversation** — Sessions since the last /improve run (max 10, anchored via the project run log; newest 10 if no run log exists), prior-run audit, plus current conversation analysis
 
 Store the answer as the `scope` for the rest of the skill.
 
@@ -41,7 +42,7 @@ Store the answer as the `scope` for the rest of the skill.
 
 ## Phase 1 & 2: Discovery + History Scan (Background, Parallel)
 
-**If scope = "Historical + current conversation":** Launch ALL agents in background simultaneously, then immediately proceed to Phase 3.
+**If scope = "Historical + current conversation":** Launch ALL agents in background simultaneously (History Scan covers sessions since the last /improve run, max 10), then immediately proceed to Phase 3.
 
 **If scope = "Current conversation only":** Launch only the Discovery Agent in background, skip History Scan and Prior-Improve Cross-Check agents entirely, then immediately proceed to Phase 3. Announce: "Launching discovery agent (current conversation scope)."
 
@@ -66,42 +67,46 @@ Return a "config map": list of files with purpose, organized by type AND level (
 
 Prompt the agent to:
 
-1. Write a bash script that:
-   - Lists .jsonl session files from `~/.claude/projects/[project-path]/`
-   - Sorts by modification date, takes 5 most recent (excluding current session)
-   - For each file, extracts ONLY lines containing user messages (type "user") — skip assistant responses and tool calls
-   - From user messages, filters for feedback signals:
-     - Corrections: "no", "don't", "stop", "not that", "wrong", "actually", "instead"
-     - Praise: "yes", "perfect", "exactly", "great", "love", "nice"
-     - Explicit feedback: "improve", "better", "should", "could you", "I wish", "next time"
-     - Frustration: repeated requests, "again", "I already said"
-   - Saves extracted messages with session date to a temp file
-   - No cap on signals — let all relevant feedback through
+1. **Determine the session window (anchored to the last /improve run):**
+   - Read the per-project learnings file's `## Run Log`. Primary anchor: the latest `Scanned through: <ISO timestamp>, session <uuid>` line across entries. Window = `.jsonl` session files in `~/.claude/projects/[project-path]/` modified strictly AFTER that timestamp, excluding that entry's session UUID and the current session.
+   - **Legacy fallback** (no Scanned-through line yet): regex-extract dates from entry headings (`^### (\d{4}-\d{2}-\d{2})` — headings can carry suffixes like `2026-08-24b`, and newest-first ordering is NOT guaranteed) and take the MAX date; window = files modified on/after that date. A one-time same-day overlap is accepted; it disappears once the first run under this version writes a timestamp.
+   - **Current-session exclusion:** derive the current session's UUID from the scratchpad directory path (its last path segment before `/scratchpad`) and exclude that `.jsonl`.
+   - Order newest first, **cap at 10**.
+   - **No run log / no learnings file:** window = the 10 newest sessions. Report the total session count so the main conversation can state how much history remains unscanned and offer an opt-in backfill run.
+   - **Gap exceeds the cap:** scan the newest 10 and report the count and date range of the unscanned remainder.
 
-2. Read temp file and organize findings:
-   - Tag each with: session date, brief context quote
-   - Group by type: corrections, praise, friction, capability gaps
-   - Note recurring patterns across sessions (same feedback 2+ times = promotion candidate)
+2. **Extract the dialogue — both speakers, tool and system noise stripped:**
+   - Write a bash script using `jq` per session file:
+     - User turns: entries with `.type=="user" and (.isMeta != true)` — keep string content as-is; for array content keep ONLY `text` blocks. This excludes tool_result blocks, which are ALSO stored as user-type entries (a naive "user messages" extraction floods the scan with tool output; session files run to tens of MB). Then drop extracted texts that START with system-injected wrappers: `<command-`, `<system-reminder`, `<local-command` (skill expansions and reminders arrive as user-type text and are noise).
+     - Assistant turns: entries with `.type=="assistant"` — keep ONLY `text` blocks (no `tool_use`, no `thinking`).
+   - Prefix each block `USER:` / `ASSISTANT:`, save one extract file per session (with session date) to a temp dir.
+   - Typical yield: a multi-MB session reduces to under ~150KB of dialogue.
 
-Return categorized findings with source citations. Concise summaries, not raw data.
+3. **Analyze semantically — NO keyword filter:**
+   - Read the extract files in full and judge by meaning: corrections, praise, friction, capability gaps, techniques or fixes the assistant proposed that worked, repeated workflows. Assistant-side lessons count — the skill's purpose is lessons from the conversation, wherever they came from.
+   - **Size guard:** if combined extracts exceed ~300KB, do not analyze in one pass — return the extract file list so the main conversation can launch one analysis agent per session. Never truncate silently.
+   - Tag findings with session date + brief context quote; note recurring patterns across 2+ sessions (promotion candidates).
+
+4. **Return:** categorized findings with source citations (concise summaries, not raw data), PLUS a coverage block: sessions scanned (count + date range), sessions excluded and why (cap overflow / no run log), and total unscanned history if this is a first run.
 
 ### Prior-Improve Cross-Check Agent (general-purpose, background — full scope only)
 
 Launch this as a 3rd background agent in parallel with Discovery and History Scan. Its job: audit what prior `/improve` runs recommended and whether their accepted changes actually landed.
 
-For each session file identified by History Scan, check if `/improve` was invoked in that session (`grep -l "/improve"` on the .jsonl). For every session where it was:
+**Primary source = the per-project learnings `## Run Log`** — every dated entry lists scope, acceptance decisions, and changed files/rules. Build the list of past runs from it (ALL logged runs, not just recent sessions). Then:
 
-1. **Extract the "Changes Applied" summary table** (the final markdown table that `/improve` prints in Phase 6). Or if no table is present, parse the AskUserQuestion responses for Accept/Reject/Modify decisions on each recommendation. Capture: recommendation text, target file, decision.
-
-2. **For each Accepted recommendation**, verify the proposed change actually landed:
-   - Read the target file mentioned in the recommendation.
+1. **For each logged Accepted change**, verify it actually landed:
+   - Read the target file mentioned in the log entry.
    - Grep for the key phrase / rule text that was supposed to be added.
    - Mark as **Verified Implemented** (key text present), **Drifted** (file exists but text missing or modified), or **Missing** (target file doesn't exist).
+   - Depth: verify all changes from runs since the last audit, plus a sample of older ones.
 
-3. **For each Skipped / Rejected recommendation**, flag for re-surfacing:
-   - Original date + session ID
-   - What was recommended and why declined (if captured from user's notes)
+2. **For each Skipped / Rejected recommendation**, flag for re-surfacing:
+   - Original date + what was recommended and why declined (if logged)
    - Whether the underlying friction has recurred since (cross-reference with current History Scan signals)
+   - Respect the learnings file's "rejected, don't re-surface" patterns — those stay suppressed.
+
+3. **Log-integrity check:** grep the windowed session files (already small) for `/improve` invocations with no matching run-log entry → report "unlogged runs" as a finding. Fall back to full session-grep reconstruction (extract Changes Applied tables / AskUserQuestion decisions from the .jsonl files) ONLY if the learnings file is missing entirely.
 
 Return a structured report:
 - **Prior `/improve` runs:** N (list dates)
@@ -154,6 +159,7 @@ After waiting for agents to complete, validate each result before proceeding:
 - If they fail: gracefully degrade to current-conversation-only scope
 - Announce: "History scan agent returned no results — skipping cross-session analysis for this run"
 - Skip Phase 4b (Pattern Promotion) and Prior-Improve audit display
+- A size-guard overflow report from History Scan is NOT a failure: launching one analysis agent per session is the required response, never truncation or degradation
 
 **Key principle:** Never silently proceed with incomplete data — always tell the user what was skipped and why.
 
@@ -455,9 +461,13 @@ Do NOT defer consolidation decisions to Phase 6. The user wants to review and ap
 
 ### Presentation
 
-**FIRST — Audit of Prior `/improve` Runs (full scope only)**
+**FIRST — Coverage statement (full scope only, always first)**
 
-**Skip this section entirely in current-only scope.** Go straight to presenting findings.
+One line stating exactly what the historical scan covered — e.g. "Scanned 3 sessions since the last run (Aug 22–25); nothing older touched." If the cap overflowed or this was a first run on the project, state what was skipped and offer the follow-up/backfill run.
+
+**THEN — Audit of Prior `/improve` Runs (full scope only)**
+
+**Skip both sections entirely in current-only scope.** Go straight to presenting findings.
 
 In full scope, before presenting any new findings, surface the Prior-Improve Cross-Check report as an audit trail:
 
@@ -553,6 +563,7 @@ After Phase 6 completes (regardless of whether any changes were applied), update
 ### 1. Project learnings file (`~/.claude/projects/<mangled-project-path>/improve-learnings.md` — create if missing, same path rule as Load Learnings)
 
 - Append a date-keyed entry under `## Run Log`: heading `### YYYY-MM-DD — <one-line session signature>`. NO run numbers — date + signature only (run counters drift and collide).
+  - **REQUIRED first line:** `Scanned through: <ISO timestamp>, session <current session UUID>` — timestamp from `date -Iseconds` at scan time (NEVER estimated or fabricated), session UUID from the scratchpad directory path. This line is the anchor the NEXT run's History Scan window starts from.
   - Scope chosen, acceptance rate by category (e.g., "Critical: 3/3 accepted")
   - Deferral counter updates (e.g., "CLAUDE.md size: 5th deferral, 210 lines")
   - Project-specific patterns or "Modify" signals from this run
@@ -568,6 +579,7 @@ After Phase 6 completes (regardless of whether any changes were applied), update
 
 ## Run Log
 ### YYYY-MM-DD — <one-line session signature>
+- Scanned through: 2026-01-01T18:30:00+08:00, session aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
 - Scope: current-only. Acceptance: Critical 3/3, Improvement 2/4.
 ```
 

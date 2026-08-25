@@ -58,13 +58,13 @@ Both are auto-managed — no manual editing needed. Delete either anytime to res
 
 ## How It Works
 
-`/improve` starts by asking what scope you want — **current conversation only** (the default) or **historical + current** (full scan). A third mode, **config audit only** (standalone config maintenance, no conversation analysis), is invoked explicitly with `/improve config audit`. Then it runs its analysis:
+`/improve` starts by asking what scope you want — **current conversation only** (the default) or **historical + current** (sessions since your last run, plus a prior-run audit). A third mode, **config audit only** (standalone config maintenance, no conversation analysis), is invoked explicitly with `/improve config audit`. Then it runs its analysis:
 
 | Phase | What It Does |
 |-------|-------------|
-| **Scope Selection** | "Current conversation only" for a quick session-focused retrospective (default), or "Historical + current conversation" for the full scan. |
+| **Scope Selection** | "Current conversation only" for a quick session-focused retrospective (default), or "Historical + current conversation" to also scan the sessions since your last run. |
 | **1. Discovery** | A background agent maps every config file at both project and global levels — CLAUDE.md, skills, agents, frameworks, memory, settings files, and `.claude/rules/`. |
-| **2. History Scan** | Another background agent reads your last 5 sessions, extracts user messages, and filters for corrections, praise, friction, and explicit feedback. *(Full scope only)* |
+| **2. History Scan** | Another background agent reads the sessions since your last `/improve` run (up to 10; newest 10 on a first run, with a deeper backfill offered), extracts the full dialogue — your messages and the assistant's replies, with tool output and system noise stripped — and judges feedback semantically, no keyword matching. Every run states exactly which sessions it covered. *(Full scope only)* |
 | **3. Live Analysis** | Analyzes your current conversation for 9 different signal types — corrections, praise, capability gaps, techniques that worked, and more. |
 | **4. Cross-Reference** | Reads your actual config files and checks for enforcement gaps (with hook promotion), recurring patterns, and 8 structured config health checks including size thresholds, memory consolidation (with promoted-but-not-cleaned and stale memory detection), skill consolidation, and cross-level analysis. |
 | **5. Present Findings** | All findings arrive as one compact list, ranked by impact, each with evidence and a recommendation. Genuine decisions get resolved via follow-up questions; ask to "walk me through them" for a per-finding accept/reject/modify flow. Nothing changes without your approval. |

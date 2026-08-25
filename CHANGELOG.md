@@ -4,6 +4,22 @@ All notable changes to the `/improve` skill are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [5.0.0] - 2026-08-25
+
+### Changed
+- **BREAKING — Historical window anchored to your last run**: "Historical + current" no longer scans a fixed "5 most recent sessions." It scans the sessions since the last `/improve` run, anchored by a new `Scanned through: <timestamp>, session <uuid>` line each run writes to the project run log — so a morning run's sessions are never re-scanned by an evening run. Capped at 10 sessions per run; if the gap is larger, the skill says what it skipped and offers a follow-up run. First run on a project (no run log): newest 10 sessions, with the remaining history counted and a deeper backfill offered. Legacy day-dated logs fall back to day-granular anchoring with at most a one-time same-day overlap.
+- **BREAKING — Full-dialogue semantic extraction**: the history scan now reads both sides of the conversation — your messages AND the assistant's prose replies — and judges feedback by meaning. The keyword filter ("no", "wrong", "perfect", ...) is gone; corrections phrased without trigger words are no longer invisible, and assistant-proposed fixes and techniques now count as lessons.
+- **Prior-improve audit reads the run log first**: past runs, their decisions, and changed files come from the per-project learnings run log (all runs, not just recent sessions); session files are only grepped as a log-integrity check within the window, or as full fallback when the log is missing entirely.
+
+### Fixed
+- **Tool-result contamination**: session `.jsonl` files store tool results as user-type entries, so the old "extract user messages" instruction could sweep megabytes of tool output into the scan. Extraction now keeps only genuine text blocks (`isMeta` entries and `<command-`/`<system-reminder`/`<local-command` wrappers stripped, assistant `tool_use`/`thinking` excluded). Measured on real data: a 32MB session reduces to ~68KB of dialogue.
+- **Run-log date parsing**: anchor dates are regex-extracted (`^### (\d{4}-\d{2}-\d{2})`) and the MAX date wins — headings can carry suffixes (e.g. `2026-08-24b`) and newest-first ordering is not guaranteed.
+
+### Added
+- **Coverage statement**: every historical run opens its findings with exactly what was scanned (e.g. "Scanned 3 sessions since the last run (Aug 22–25); nothing older touched") and what was skipped.
+- **Learnings visibility**: run start announces what loaded — "Loaded learnings: N project patterns, M previously-rejected items suppressed" — instead of applying learnings silently.
+- **Per-session size guard**: if the window's extracted dialogue exceeds ~300KB, analysis splits into one agent per session instead of truncating.
+
 ## [4.0.1] - 2026-08-12
 
 ### Fixed

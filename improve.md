@@ -68,9 +68,10 @@ Return a "config map": list of files with purpose, organized by type AND level (
 Prompt the agent to:
 
 1. **Determine the session window (anchored to the last /improve run):**
+   - `[project-path]` is the SAME mangled derivation defined in Load Learnings (absolute path with every `/`, space, and `.` replaced by `-`); if the computed directory doesn't exist, list `~/.claude/projects/` and match by project name — include this rule in the agent's prompt.
    - Read the per-project learnings file's `## Run Log`. Primary anchor: the latest `Scanned through: <ISO timestamp>, session <uuid>` line across entries. Window = `.jsonl` session files in `~/.claude/projects/[project-path]/` modified strictly AFTER that timestamp, excluding that entry's session UUID and the current session.
-   - **Legacy fallback** (no Scanned-through line yet): regex-extract dates from entry headings (`^### (\d{4}-\d{2}-\d{2})` — headings can carry suffixes like `2026-08-24b`, and newest-first ordering is NOT guaranteed) and take the MAX date; window = files modified on/after that date. A one-time same-day overlap is accepted; it disappears once the first run under this version writes a timestamp.
-   - **Current-session exclusion:** derive the current session's UUID from the scratchpad directory path (its last path segment before `/scratchpad`) and exclude that `.jsonl`.
+   - **Legacy fallback** — applies ONLY when NO entry has a Scanned-through line (a mixed log with the line in recent entries uses the primary anchor): regex-extract dates from entry headings (`^### (\d{4}-\d{2}-\d{2})` — headings can carry suffixes like `2026-08-24b`, and newest-first ordering is NOT guaranteed) and take the MAX date; window = files modified on/after that date. A one-time same-day overlap is accepted; it disappears once the first run under this version writes a timestamp.
+   - **Current-session exclusion:** derive the current session's UUID from the scratchpad directory path (its last path segment before `/scratchpad`) and exclude that `.jsonl`. Fallback if no scratchpad path is available: treat the most recently modified `.jsonl` (the one actively growing) as the current session.
    - Order newest first, **cap at 10**.
    - **No run log / no learnings file:** window = the 10 newest sessions. Report the total session count so the main conversation can state how much history remains unscanned and offer an opt-in backfill run.
    - **Gap exceeds the cap:** scan the newest 10 and report the count and date range of the unscanned remainder.
@@ -79,7 +80,7 @@ Prompt the agent to:
    - Write a bash script using `jq` per session file:
      - User turns: entries with `.type=="user" and (.isMeta != true)` — keep string content as-is; for array content keep ONLY `text` blocks. This excludes tool_result blocks, which are ALSO stored as user-type entries (a naive "user messages" extraction floods the scan with tool output; session files run to tens of MB). Then drop extracted texts that START with system-injected wrappers: `<command-`, `<system-reminder`, `<local-command` (skill expansions and reminders arrive as user-type text and are noise).
      - Assistant turns: entries with `.type=="assistant"` — keep ONLY `text` blocks (no `tool_use`, no `thinking`).
-   - Prefix each block `USER:` / `ASSISTANT:`, save one extract file per session (with session date) to a temp dir.
+   - Prefix each block `USER:` / `ASSISTANT:`, save one extract file per session to the session scratchpad directory, named `extract-<session-date>-<session-uuid>.txt` — a defined location so the size-guard hand-off (one analysis agent per session) can pick the files up.
    - Typical yield: a multi-MB session reduces to under ~150KB of dialogue.
 
 3. **Analyze semantically — NO keyword filter:**
@@ -93,7 +94,7 @@ Prompt the agent to:
 
 Launch this as a 3rd background agent in parallel with Discovery and History Scan. Its job: audit what prior `/improve` runs recommended and whether their accepted changes actually landed.
 
-**Primary source = the per-project learnings `## Run Log`** — every dated entry lists scope, acceptance decisions, and changed files/rules. Build the list of past runs from it (ALL logged runs, not just recent sessions). Then:
+**Primary source = the per-project learnings `## Run Log`** — every dated entry lists scope, acceptance decisions, and changed files/rules. Build the list of past runs from it — ALL logged runs, deliberately NOT limited to the History Scan's session window or its cap of 10; the audit and the scan cover different populations. Then:
 
 1. **For each logged Accepted change**, verify it actually landed:
    - Read the target file mentioned in the log entry.
@@ -106,7 +107,7 @@ Launch this as a 3rd background agent in parallel with Discovery and History Sca
    - Whether the underlying friction has recurred since (cross-reference with current History Scan signals)
    - Respect the learnings file's "rejected, don't re-surface" patterns — those stay suppressed.
 
-3. **Log-integrity check:** grep the windowed session files (already small) for `/improve` invocations with no matching run-log entry → report "unlogged runs" as a finding. Fall back to full session-grep reconstruction (extract Changes Applied tables / AskUserQuestion decisions from the .jsonl files) ONLY if the learnings file is missing entirely.
+3. **Log-integrity check:** grep the windowed session files for `/improve` invocations with no matching run-log entry → report "unlogged runs" as a finding. This agent runs in parallel with History Scan and receives no hand-off — recompute the window yourself using the History Scan section's rules (Scanned-through anchor, exclusions, cap 10). Fall back to full session-grep reconstruction (extract Changes Applied tables / AskUserQuestion decisions from the .jsonl files) ONLY if the learnings file is missing entirely.
 
 Return a structured report:
 - **Prior `/improve` runs:** N (list dates)
@@ -563,7 +564,7 @@ After Phase 6 completes (regardless of whether any changes were applied), update
 ### 1. Project learnings file (`~/.claude/projects/<mangled-project-path>/improve-learnings.md` — create if missing, same path rule as Load Learnings)
 
 - Append a date-keyed entry under `## Run Log`: heading `### YYYY-MM-DD — <one-line session signature>`. NO run numbers — date + signature only (run counters drift and collide).
-  - **REQUIRED first line:** `Scanned through: <ISO timestamp>, session <current session UUID>` — timestamp from `date -Iseconds` at scan time (NEVER estimated or fabricated), session UUID from the scratchpad directory path. This line is the anchor the NEXT run's History Scan window starts from.
+  - **REQUIRED first line:** `Scanned through: <ISO timestamp>, session <current session UUID>` — timestamp from `date -Iseconds` at scan time (NEVER estimated or fabricated), session UUID from the scratchpad directory path (fallback if unavailable: the most recently modified `.jsonl` in the project's sessions directory, noted as such). This line is the anchor the NEXT run's History Scan window starts from.
   - Scope chosen, acceptance rate by category (e.g., "Critical: 3/3 accepted")
   - Deferral counter updates (e.g., "CLAUDE.md size: 5th deferral, 210 lines")
   - Project-specific patterns or "Modify" signals from this run

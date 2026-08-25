@@ -4,6 +4,11 @@ All notable changes to the `/improve` skill are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [5.0.1] - 2026-08-25
+
+### Fixed
+Six clarity gaps in the new historical-scan instructions, caught by a zero-context operability review (a fresh reader executing purely from the file): the History Scan section now restates the mangled `[project-path]` derivation and its existence fallback instead of relying on Load Learnings; the session-UUID derivation from the scratchpad path has a fallback (most recently modified `.jsonl`) at both places it's used; the extract files get a defined location and name (`extract-<session-date>-<session-uuid>.txt` in the session scratchpad) so the size-guard hand-off has a pickup point; the Prior-Improve Cross-Check explicitly recomputes the session window itself (it runs in parallel with History Scan, no hand-off) and explicitly audits ALL logged runs, not the windowed 10; and the legacy date fallback is now explicitly restricted to logs where NO entry has a Scanned-through line (mixed logs use the primary anchor).
+
 ## [5.0.0] - 2026-08-25
 
 ### Changed
